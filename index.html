@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ultrasound Wave Production — Animation</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --teal:   #00e5be;
+    --teal2:  #00b8a0;
+    --cyan:   #00c8e0;
+    --navy:   #03070f;
+    --dark:   #060f28;
+    --mid:    #0a1a3a;
+    --white:  #e8f4f2;
+    --dimw:   #8abaaf;
+    --panel:  rgba(4,12,30,0.85);
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--navy);
+    font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+    color: var(--white);
+    overflow: hidden;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  #header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 28px 10px;
+    border-bottom: 1px solid rgba(0,229,190,0.12);
+    background: rgba(3,7,15,0.9);
+    flex-shrink: 0;
+  }
+
+  #header h1 {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    color: var(--teal);
+    text-transform: uppercase;
+  }
+
+  #header .subtitle {
+    font-size: 11px;
+    color: var(--dimw);
+    letter-spacing: 0.08em;
+    margin-top: 2px;
+  }
+
+  .badge {
+    font-size: 10px;
+    color: var(--navy);
+    background: var(--teal);
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+  }
+
+  /* ── Canvas wrapper ── */
+  #canvasWrap {
+    position: relative;
+    width: 100%;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  #uc {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* ── HUD overlays ── */
+  #hud {
+    position: absolute;
+    top: 14px; left: 18px; right: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    pointer-events: none;
+  }
+
+  #stageLabel {
+    color: var(--teal);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    background: rgba(3,7,15,0.78);
+    padding: 5px 16px;
+    border-radius: 20px;
+    border: 1px solid rgba(0,229,190,0.28);
+  }
+
+  #timerGroup {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  #timerBar {
+    width: 160px; height: 4px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  #timerFill {
+    height: 100%;
+    width: 0%;
+    background: var(--teal);
+    border-radius: 2px;
+    transition: width 0.08s linear;
+  }
+
+  #timerText {
+    color: var(--teal2);
+    font-size: 12px;
+    font-weight: 600;
+    min-width: 38px;
+  }
+
+  /* ── Bottom description ── */
+  #descBar {
+    position: absolute;
+    bottom: 56px; left: 0; right: 0;
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+  }
+
+  #stageDesc {
+    background: rgba(3,7,15,0.82);
+    color: var(--dimw);
+    font-size: 12px;
+    padding: 6px 20px;
+    border-radius: 20px;
+    border: 1px solid rgba(0,184,154,0.22);
+    max-width: 600px;
+    text-align: center;
+    line-height: 1.5;
+  }
+
+  /* ── Controls ── */
+  #controls {
+    position: absolute;
+    bottom: 12px; left: 0; right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    pointer-events: auto;
+  }
+
+  .ctrl-btn {
+    background: rgba(0,229,190,0.12);
+    border: 1px solid rgba(0,229,190,0.35);
+    color: var(--teal);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 18px;
+    border-radius: 20px;
+    cursor: pointer;
+    letter-spacing: 0.04em;
+    transition: background 0.15s, transform 0.1s;
+  }
+
+  .ctrl-btn:hover { background: rgba(0,229,190,0.22); }
+  .ctrl-btn:active { transform: scale(0.96); }
+  .ctrl-btn.accent {
+    background: rgba(0,229,190,0.28);
+    border-color: rgba(0,229,190,0.6);
+  }
+
+  .speed-label {
+    font-size: 11px;
+    color: var(--dimw);
+  }
+
+  /* ── Stage dots ── */
+  #stageDots {
+    position: absolute;
+    bottom: 46px; right: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    pointer-events: none;
+  }
+
+  .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: rgba(0,229,190,0.2);
+    border: 1px solid rgba(0,229,190,0.3);
+    transition: background 0.3s, transform 0.3s;
+  }
+  .dot.active {
+    background: var(--teal);
+    border-color: var(--teal);
+    transform: scale(1.3);
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div id="header">
+  <div>
+    <h1>Ultrasound Wave Production</h1>
+    <div class="subtitle">Principles, Technology &amp; Applications — Animated Explainer</div>
+  </div>
+  <div class="badge">60 SEC</div>
+</div>
+
+<!-- Canvas -->
+<div id="canvasWrap">
+  <canvas id="uc"></canvas>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div id="stageLabel">Stage 1 — Voltage applied</div>
+    <div id="timerGroup">
+      <div id="timerBar"><div id="timerFill"></div></div>
+      <span id="timerText">0:00</span>
+    </div>
+  </div>
+
+  <!-- Description -->
+  <div id="descBar">
+    <div id="stageDesc">Alternating electrical voltage is applied to the piezoelectric crystal.</div>
+  </div>
+
+  <!-- Stage dots -->
+  <div id="stageDots">
+    <div class="dot active" id="dot0"></div>
+    <div class="dot" id="dot1"></div>
+    <div class="dot" id="dot2"></div>
+    <div class="dot" id="dot3"></div>
+    <div class="dot" id="dot4"></div>
+    <div class="dot" id="dot5"></div>
+    <div class="dot" id="dot6"></div>
+  </div>
+
+  <!-- Controls -->
+  <div id="controls">
+    <button class="ctrl-btn" id="restartBtn">&#8635; Restart</button>
+    <button class="ctrl-btn accent" id="playBtn">&#10074;&#10074; Pause</button>
+    <span class="speed-label">Speed:</span>
+    <button class="ctrl-btn" id="speed1Btn">1×</button>
+    <button class="ctrl-btn" id="speed2Btn">2×</button>
+  </div>
+</div>
+
+<script>
+// ── Canvas setup ────────────────────────────────────────────────
+const cv  = document.getElementById('uc');
+const ctx = cv.getContext('2d');
+let W, H;
+
+function resize() {
+  const wrap = document.getElementById('canvasWrap');
+  W = wrap.offsetWidth;
+  H = wrap.offsetHeight;
+  cv.width  = W * devicePixelRatio;
+  cv.height = H * devicePixelRatio;
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+}
+resize();
+window.addEventListener('resize', () => { resize(); });
+
+// ── Colors (presentation palette) ───────────────────────────────
+const TEAL  = '#00e5be';
+const TEAL2 = '#00b8a0';
+const CYAN  = '#00c8e0';
+const NAVY  = '#03070f';
+const WHITE = '#e8f4f2';
+const DIMW  = '#8abaaf';
+
+function hexA(hex, a) {
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+// ── Animation state ─────────────────────────────────────────────
+const TOTAL   = 60;
+let t         = 0;
+let paused    = false;
+let speed     = 1;
+let lastTime  = null;
+let raf;
+
+// ── Stage definitions ────────────────────────────────────────────
+const stages = [
+  { start:0,  end:8,  label:'Stage 1 — Voltage applied to crystal',   desc:'Alternating electrical voltage (AC) is applied to the piezoelectric crystal (PZT) inside the transducer head.' },
+  { start:8,  end:16, label:'Stage 2 — Crystal deformation',           desc:'The crystal expands and contracts at the same frequency as the voltage — the piezoelectric effect converts electricity into mechanical vibration.' },
+  { start:16, end:26, label:'Stage 3 — Wave pulse emission',            desc:'Rapid crystal vibrations launch a short burst of high-frequency sound waves (1–20 MHz) from the transducer face into the body.' },
+  { start:26, end:38, label:'Stage 4 — Propagation through tissue',    desc:'Waves travel through skin, fat, muscle and organs at ~1,540 m/s. Each tissue interface has a different acoustic impedance (Z).' },
+  { start:38, end:48, label:'Stage 5 — Echo reflection & return',       desc:'At tissue boundaries, waves partially reflect back toward the transducer, which now acts as a receiver, detecting the returning echoes.' },
+  { start:48, end:56, label:'Stage 6 — Signal processing',              desc:'Returned echoes are amplified, time-gain compensated (TGC), and converted from analog to digital signals by the processor.' },
+  { start:56, end:60, label:'Stage 7 — B-mode image formation',         desc:'Echo depth (from travel time at 1,540 m/s) and brightness (from echo amplitude) are mapped pixel-by-pixel to form the real-time scan image.' },
+];
+
+function getStageIndex(sec) {
+  for (let i = 0; i < stages.length; i++)
+    if (sec >= stages[i].start && sec < stages[i].end) return i;
+  return stages.length - 1;
+}
+
+function phase(start, end, sec) {
+  return Math.max(0, Math.min(1, (sec - start) / (end - start)));
+}
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+// ── Drawing helpers ──────────────────────────────────────────────
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y,   x + w, y + r);
+  ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+// ── Main draw ────────────────────────────────────────────────────
+function draw(sec) {
+  // Background
+  ctx.fillStyle = NAVY;
+  ctx.fillRect(0, 0, W, H);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(0,229,190,0.04)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+
+  // Layout math — responsive
+  const midX      = W * 0.5;
+  const crystalCX = W * 0.22;
+  const crystalCY = H * 0.44;
+  const cW        = Math.min(70, W * 0.08);
+  const cH        = Math.min(90, H * 0.18);
+  const tissueX   = W * 0.52;
+  const tissueTopY= H * 0.14;
+  const tissueW   = Math.min(190, W * 0.22);
+  const voltX     = W * 0.06;
+  const voltY     = H * 0.44;
+
+  const vPhase  = phase(0,  8,  sec);
+  const dPhase  = phase(8,  16, sec);
+  const ePhase  = phase(16, 26, sec);
+  const pPhase  = phase(26, 38, sec);
+  const rPhase  = phase(38, 48, sec);
+  const sPhase  = phase(48, 56, sec);
+  const iPhase  = phase(56, 60, sec);
+
+  // Tissue layers
+  const layers = [
+    { name:'Skin',   h:18 },
+    { name:'Fat',    h:28 },
+    { name:'Muscle', h:50 },
+    { name:'Organ',  h:60 },
+    { name:'Bone',   h:22 },
+  ];
+  const layerFills   = ['#1a4a3a','#0f2e28','#0a2235','#08182e','#06121e'];
+  const layerBorders = ['#2a7a5a','#1a5040','#154a60','#0f3050','#0a2030'];
+  const totalDepth   = layers.reduce((s,l) => s + l.h, 0);
+
+  // ── Voltage source ──────────────────────────────────────────
+  if (vPhase > 0) {
+    ctx.save(); ctx.globalAlpha = Math.min(vPhase * 3, 1);
+    // Box
+    ctx.fillStyle = '#040c20';
+    ctx.strokeStyle = hexA(CYAN, 0.4); ctx.lineWidth = 1.5;
+    roundRect(voltX - 26, voltY - 44, 52, 64, 6); ctx.fill(); ctx.stroke();
+    // AC symbol
+    ctx.fillStyle = CYAN; ctx.font = 'bold 20px Trebuchet MS'; ctx.textAlign = 'center';
+    ctx.fillText('~', voltX, voltY - 12);
+    ctx.fillStyle = hexA(DIMW, 0.8); ctx.font = '10px Trebuchet MS';
+    ctx.fillText('AC source', voltX, voltY + 16);
+
+    // Voltage waveform above
+    const wY = H * 0.14;
+    ctx.strokeStyle = hexA(CYAN, 0.7); ctx.lineWidth = 1.8; ctx.beginPath();
+    for (let xi = 0; xi < 90; xi += 2) {
+      const xp = voltX - 44 + xi;
+      const yp = wY + 20 * Math.sin((xi / 90 * 4 - sec * 6) * Math.PI);
+      xi === 0 ? ctx.moveTo(xp, yp) : ctx.lineTo(xp, yp);
+    }
+    ctx.stroke();
+    // Axis
+    ctx.strokeStyle = hexA(DIMW, 0.2); ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.moveTo(voltX - 44, wY); ctx.lineTo(voltX + 44, wY); ctx.stroke();
+    ctx.fillStyle = hexA(CYAN, 0.75); ctx.font = '10px Trebuchet MS'; ctx.textAlign = 'center';
+    ctx.fillText('Voltage (~V)', voltX, wY - 28);
+    ctx.restore();
+  }
+
+  // Wires voltage → crystal
+  if (vPhase > 0) {
+    const wp = Math.min(vPhase * 2.5, 1);
+    // Top wire
+    drawWire(voltX + 26, voltY - 22, crystalCX - cW/2 - 8, crystalCY - cH/4, wp, hexA(CYAN, 0.7));
+    // Bottom wire
+    drawWire(voltX + 26, voltY + 22, crystalCX - cW/2 - 8, crystalCY + cH/4, wp, hexA(TEAL, 0.7));
+  }
+
+  // ── Crystal ────────────────────────────────────────────────
+  {
+    const voltage = Math.sin(sec * 6 * Math.PI);
+    const deform  = (dPhase > 0 ? dPhase : Math.min(vPhase * 0.3, 0.3)) * Math.abs(voltage) * 7;
+    const dW      = cW + deform;
+    const dH      = cH - deform * 0.4;
+
+    // Outer housing
+    ctx.fillStyle = '#0d1e3c'; ctx.strokeStyle = '#1a3460'; ctx.lineWidth = 1.5;
+    roundRect(crystalCX - cW/2 - 9, crystalCY - cH/2 - 9, cW + 18, cH + 18, 7);
+    ctx.fill(); ctx.stroke();
+
+    // Lattice
+    const cols = 8, rows = 5;
+    ctx.strokeStyle = hexA(TEAL, 0.16); ctx.lineWidth = 0.5;
+    const lx0 = crystalCX - dW/2, ly0 = crystalCY - dH/2;
+    for (let i = 0; i <= cols; i++) {
+      const x = lx0 + i * dW/cols;
+      ctx.beginPath(); ctx.moveTo(x, ly0); ctx.lineTo(x, ly0 + dH); ctx.stroke();
+    }
+    for (let j = 0; j <= rows; j++) {
+      const y = ly0 + j * dH/rows;
+      ctx.beginPath(); ctx.moveTo(lx0, y); ctx.lineTo(lx0 + dW, y); ctx.stroke();
+    }
+
+    // Crystal fill
+    const glowA = 0.06 + Math.abs(voltage) * 0.35;
+    ctx.fillStyle = hexA(TEAL, glowA);
+    roundRect(crystalCX - dW/2, crystalCY - dH/2, dW, dH, 3); ctx.fill();
+    ctx.strokeStyle = hexA(TEAL, 0.28 + Math.abs(voltage) * 0.55); ctx.lineWidth = 1.5;
+    roundRect(crystalCX - dW/2, crystalCY - dH/2, dW, dH, 3); ctx.stroke();
+
+    // Electrodes
+    ctx.fillStyle = voltage > 0 ? hexA(TEAL, 0.75) : hexA(CYAN, 0.75);
+    ctx.fillRect(crystalCX - dW/2 - 3, crystalCY - dH/2, 3, dH);
+    ctx.fillStyle = voltage > 0 ? hexA(CYAN, 0.75) : hexA(TEAL, 0.75);
+    ctx.fillRect(crystalCX + dW/2,     crystalCY - dH/2, 3, dH);
+
+    // + / - labels on electrodes
+    ctx.fillStyle = hexA(WHITE, 0.6); ctx.font = 'bold 11px Trebuchet MS'; ctx.textAlign = 'center';
+    ctx.fillText(voltage > 0 ? '+' : '−', crystalCX - dW/2 - 10, crystalCY + 4);
+    ctx.fillText(voltage > 0 ? '−' : '+', crystalCX + dW/2 + 10, crystalCY + 4);
+
+    // PZT label
+    ctx.fillStyle = hexA(WHITE, 0.45); ctx.font = '10px Trebuchet MS'; ctx.textAlign = 'center';
+    ctx.fillText('PZT crystal', crystalCX, crystalCY + 4);
+
+    // Frequency label
+    if (sec > 4) {
+      ctx.save(); ctx.globalAlpha = Math.min((sec - 4) * 0.4, 1);
+      ctx.fillStyle = hexA(TEAL, 0.85); ctx.font = 'bold 11px Trebuchet MS'; ctx.textAlign = 'center';
+      ctx.fillText('1 – 20 MHz', crystalCX, crystalCY - cH/2 - 20);
+      ctx.restore();
+    }
+
+    // Deformation arrows (Stage 2)
+    if (dPhase > 0) {
+      const da = Math.min(dPhase * 2.5, 1);
+      const dir = Math.sin(sec * 6 * Math.PI);
+      const arrLen = 14 + Math.abs(dir) * 14;
+      ctx.save(); ctx.globalAlpha = da;
+      const arrowColor = dir > 0 ? TEAL : CYAN;
+      if (dir > 0) {
+        drawArrow(crystalCX - dW/2 - 4, crystalCY, crystalCX - dW/2 - 4 - arrLen, crystalCY, arrowColor);
+        drawArrow(crystalCX + dW/2 + 4, crystalCY, crystalCX + dW/2 + 4 + arrLen, crystalCY, arrowColor);
+      } else {
+        drawArrow(crystalCX - dW/2 - 4, crystalCY, crystalCX - dW/2 - 4 + arrLen * 0.7, crystalCY, arrowColor);
+        drawArrow(crystalCX + dW/2 + 4, crystalCY, crystalCX + dW/2 + 4 - arrLen * 0.7, crystalCY, arrowColor);
+      }
+      ctx.fillStyle = hexA(TEAL, 0.7); ctx.font = '10px Trebuchet MS'; ctx.textAlign = 'center';
+      ctx.fillText('mechanical deformation', crystalCX, crystalCY + cH/2 + 28);
+      ctx.restore();
+    }
+  }
+
+  // ── Transducer housing ──────────────────────────────────────
+  {
+    const txCX = tissueX + tissueW/2;
+    const txCY = tissueTopY - 55;
+    const txW  = Math.min(65, tissueW * 0.42);
+
+    ctx.fillStyle = '#0e1e3c'; ctx.strokeStyle = '#1e3a6a'; ctx.lineWidth = 1.5;
+    roundRect(txCX - txW/2, txCY - 14, txW, 54, 7); ctx.fill(); ctx.stroke();
+
+    // Transducer face / crystal array
+    const faceGlow = 0.2 + 0.15 * Math.sin(sec * 7);
+    ctx.fillStyle = hexA(TEAL, faceGlow);
+    ctx.fillRect(txCX - txW/2 + 4, txCY + 30, txW - 8, 9);
+    // Array lines
+    ctx.strokeStyle = hexA(TEAL, 0.65); ctx.lineWidth = 0.5;
+    for (let i = 1; i < 7; i++) {
+      const ax = txCX - txW/2 + 4 + i * (txW - 8)/7;
+      ctx.beginPath(); ctx.moveTo(ax, txCY + 30); ctx.lineTo(ax, txCY + 39); ctx.stroke();
+    }
+    // LED
+    ctx.beginPath(); ctx.arc(txCX + txW/2 - 9, txCY - 5, 4, 0, Math.PI * 2);
+    ctx.fillStyle = sec < 60 ? hexA(TEAL, 0.9) : '#0a2030'; ctx.fill();
+
+    ctx.fillStyle = hexA(WHITE, 0.45); ctx.font = 'bold 10px Trebuchet MS'; ctx.textAlign = 'center';
+    ctx.fillText('Transducer', txCX, txCY + 12);
+  }
+
+  // ── Tissue layers ────────────────────────────────────────────
+  {
+    const reveal = ePhase > 0 ? Math.min(ePhase * 4, 1) : pPhase > 0 ? 1 : 0;
+    let ly = tissueTopY;
+    layers.forEach((l, i) => {
+      const a = Math.max(0, Math.min(reveal - i * 0.18, 1));
+      if (a <= 0) { ly += l.h; return; }
+      ctx.save(); ctx.globalAlpha = a;
+      ctx.fillStyle = layerFills[i]; ctx.strokeStyle = layerBorders[i]; ctx.lineWidth = 1;
+      ctx.fillRect(tissueX, ly, tissueW, l.h); ctx.strokeRect(tissueX, ly, tissueW, l.h);
+      ctx.fillStyle = hexA(DIMW, 0.65); ctx.font = '10px Trebuchet MS'; ctx.textAlign = 'left';
+      ctx.fillText(l.name, tissueX + 4, ly + l.h/2 + 4);
+      ctx.restore();
+      ly += l.h;
+    });
+  }
+
+  // ── Propagating wave pulses ────────────────────────────────
+  if (ePhase > 0 || pPhase > 0) {
+    const stageA = Math.max(ePhase, pPhase);
+    for (let wi = 0; wi < 5; wi++) {
+      const wPhase = ((sec / 2.1 + wi * 0.25) % 1);
+      const wY = tissueTopY + wPhase * totalDepth * 1.08;
+      if (wY > tissueTopY + totalDepth + 18 || wY < tissueTopY - 6) continue;
+      const fade = Math.max(0.18, 1 - wPhase * 0.55);
+      const ww   = tissueW * 0.88;
+      ctx.save(); ctx.globalAlpha = stageA * fade;
+      // Main arc
+      ctx.strokeStyle = TEAL; ctx.lineWidth = 2.2; ctx.beginPath();
+      for (let dx = -ww/2; dx <= ww/2; dx += 2) {
+        const px = tissueX + tissueW/2 + dx;
+        const curve = Math.cos((dx / ww) * Math.PI) * 7;
+        const py = wY - curve;
+        dx === -ww/2 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+      // Softer second arc
+      ctx.strokeStyle = hexA(TEAL, 0.3); ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let dx = -ww/2; dx <= ww/2; dx += 2) {
+        const px = tissueX + tissueW/2 + dx;
+        const py = wY + 5 - Math.cos((dx / ww) * Math.PI) * 4;
+        dx === -ww/2 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+    // Speed annotation
+    if (pPhase > 0.2) {
+      ctx.save(); ctx.globalAlpha = Math.min((pPhase - 0.2) * 2.5, 1);
+      ctx.fillStyle = hexA(TEAL, 0.9); ctx.font = 'bold 11px Trebuchet MS'; ctx.textAlign = 'center';
+      ctx.fillText('≈ 1,540 m/s', tissueX + tissueW/2, tissueTopY + totalDepth + 20);
+      ctx.restore();
+    }
+  }
+
+  // Acoustic impedance labels (Stage 4)
+  if (pPhase > 0.4) {
+    const a = Math.min((pPhase - 0.4) * 3, 1);
+    ctx.save(); ctx.globalAlpha = a * 0.8;
+    let zy = tissueTopY + 18;
+    ['Z₁','Z₂','Z₃','Z₄'].forEach((zl, i) => {
+      ctx.fillStyle = hexA(DIMW, 0.7); ctx.font = '9px Trebuchet MS'; ctx.textAlign = 'right';
+      ctx.fillText(zl, tissueX - 4, zy + 4);
+      ctx.strokeStyle = hexA(DIMW, 0.12); ctx.lineWidth = 0.5; ctx.setLineDash([2,4]);
+      ctx.beginPath(); ctx.moveTo(tissueX, zy); ctx.lineTo(tissueX + tissueW, zy); ctx.stroke();
+      ctx.setLineDash([]);
+      zy += [28, 50, 60, 22][i] || 28;
+    });
+    ctx.restore();
+  }
+
+  // ── Echo return waves ──────────────────────────────────────
+  if (rPhase > 0) {
+    for (let ei = 0; ei < 4; ei++) {
+      const eP2   = ((sec / 2.2 + ei * 0.3) % 1);
+      const eY    = tissueTopY + totalDepth - eP2 * totalDepth * 1.05;
+      if (eY < tissueTopY - 15 || eY > tissueTopY + totalDepth + 8) continue;
+      const fade  = Math.max(0.1, 1 - eP2 * 0.5) * rPhase;
+      const ew    = tissueW * 0.72;
+      ctx.save(); ctx.globalAlpha = fade;
+      ctx.strokeStyle = CYAN; ctx.lineWidth = 1.8; ctx.beginPath();
+      for (let dx = -ew/2; dx <= ew/2; dx += 2) {
+        const px = tissueX + tissueW/2 + dx;
+        const py = eY + Math.cos((dx / ew) * Math.PI) * 5;
+        dx === -ew/2 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+    // Reflection interfaces
+    if (rPhase > 0.3) {
+      ctx.save(); ctx.globalAlpha = Math.min((rPhase - 0.3) * 2.5, 1) * 0.5;
+      let iy = tissueTopY + 18;
+      [28, 50, 60].forEach(lh => {
+        ctx.strokeStyle = hexA(TEAL, 0.4); ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+        ctx.beginPath(); ctx.moveTo(tissueX, iy); ctx.lineTo(tissueX + tissueW, iy); ctx.stroke();
+        ctx.setLineDash([]); iy += lh;
+      });
+      // "echo" label
+      ctx.fillStyle = hexA(CYAN, 0.8); ctx.font = 'bold 10px Trebuchet MS'; ctx.textAlign = 'left';
+      ctx.fillText('↩ echo', tissueX + tissueW + 6, tissueTopY + totalDepth / 2);
+      ctx.restore();
+    }
+  }
+
+  // Dashed line crystal → transducer (emission)
+  if (ePhase > 0) {
+    const a = Math.min(ePhase * 3, 1);
+    ctx.save(); ctx.globalAlpha = a * 0.45;
+    ctx.strokeStyle = TEAL; ctx.lineWidth = 1; ctx.setLineDash([5,5]);
+    ctx.beginPath();
+    ctx.moveTo(crystalCX + cW/2 + 14, crystalCY);
+    ctx.lineTo(tissueX + tissueW/2, tissueTopY + 35);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  // ── Signal Processor box ────────────────────────────────────
+  if (sPhase > 0) {
+    const a  = Math.min(sPhase * 3, 1);
+    const bw = Math.min(130, W * 0.16);
+    const bh = 48;
+    const bx = crystalCX;
+    const by = crystalCY + cH/2 + 64;
+    ctx.save(); ctx.globalAlpha = a;
+    ctx.fillStyle = '#030c20'; ctx.strokeStyle = hexA(TEAL, 0.45); ctx.lineWidth = 1;
+    roundRect(bx - bw/2, by - bh/2, bw, bh, 6); ctx.fill(); ctx.stroke();
+
+    // Waveform
+    ctx.strokeStyle = hexA(TEAL, 0.85); ctx.lineWidth = 1.5; ctx.beginPath();
+    for (let xi = 0; xi < bw - 12; xi += 2) {
+      const xp = bx - bw/2 + 6 + xi;
+      const decay = Math.exp(-xi / (bw * 0.35));
+      const yp = by + 13 * Math.sin((xi / 5) - sec * 9) * decay;
+      xi === 0 ? ctx.moveTo(xp, yp) : ctx.lineTo(xp, yp);
+    }
+    ctx.stroke();
+
+    // Scan line
+    const scanY = by - bh/2 + ((sec * 40) % bh);
+    ctx.fillStyle = hexA(TEAL, 0.06);
+    ctx.fillRect(bx - bw/2 + 2, scanY, bw - 4, 2);
+
+    ctx.fillStyle = hexA(TEAL, 0.75); ctx.font = '9px Trebuchet MS'; ctx.textAlign = 'center';
+    ctx.fillText('Signal processor', bx, by + bh/2 + 13);
+    ctx.restore();
+  }
+
+  // ── B-mode Image output ─────────────────────────────────────
+  if (iPhase > 0) {
+    const imgX = tissueX + tissueW + 24;
+    const imgW = Math.min(110, W * 0.14);
+    const imgH = totalDepth;
+    const imgY = tissueTopY;
+
+    ctx.save(); ctx.globalAlpha = iPhase;
+    ctx.fillStyle = '#010a08';
+    roundRect(imgX, imgY, imgW, imgH, 5); ctx.fill();
+    ctx.strokeStyle = hexA(TEAL, 0.55); ctx.lineWidth = 1;
+    roundRect(imgX, imgY, imgW, imgH, 5); ctx.stroke();
+
+    // Scan content
+    ctx.save();
+    roundRect(imgX + 2, imgY + 2, imgW - 4, imgH - 4, 4); ctx.clip();
+    for (let ang = -50; ang <= 50; ang += 5) {
+      for (let ri = 5; ri < imgH * 0.93; ri += 4) {
+        const a2 = ang * Math.PI / 180;
+        const px = imgX + imgW/2 + ri * Math.sin(a2) * 0.55;
+        const py = imgY + 10 + ri * Math.cos(a2) * 0.92;
+        const br = 0.1 + 0.65 * Math.abs(Math.sin(ri * 0.13 + ang * 0.07));
+        ctx.fillStyle = `rgba(0,${Math.round(br*210)},${Math.round(br*148)},${br})`;
+        ctx.fillRect(px, py, 2, 2);
+      }
+    }
+    ctx.restore();
+
+    // Echo highlight
+    const ex = imgX + imgW * 0.45, ey = imgY + imgH * 0.42;
+    ctx.beginPath(); ctx.arc(ex, ey, 11, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0,180,130,0.22)'; ctx.fill();
+    ctx.strokeStyle = TEAL; ctx.lineWidth = 1; ctx.stroke();
+
+    // Label
+    ctx.fillStyle = hexA(TEAL, 0.85); ctx.font = 'bold 10px Trebuchet MS'; ctx.textAlign = 'center';
+    ctx.fillText('B-Mode Image', imgX + imgW/2, imgY + imgH + 16);
+
+    // Arrow from tissue to image
+    ctx.strokeStyle = hexA(TEAL, 0.45); ctx.lineWidth = 1; ctx.setLineDash([4,4]);
+    ctx.beginPath();
+    ctx.moveTo(tissueX + tissueW, imgY + imgH/2);
+    ctx.lineTo(imgX, imgY + imgH/2);
+    ctx.stroke(); ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  // ── Title watermark ─────────────────────────────────────────
+  ctx.save(); ctx.globalAlpha = 0.06;
+  ctx.fillStyle = TEAL; ctx.font = 'bold 11px Trebuchet MS'; ctx.textAlign = 'right';
+  ctx.fillText('ULTRASOUND: Principles, Technology & Applications', W - 14, H - 14);
+  ctx.restore();
+}
+
+// ── Wire helper ──────────────────────────────────────────────────
+function drawWire(x1, y1, x2, y2, progress, color) {
+  if (progress <= 0) return;
+  const px = lerp(x1, x2, Math.min(progress, 1));
+  const py = lerp(y1, y2, Math.min(progress, 1));
+  ctx.strokeStyle = color; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(px, py); ctx.stroke();
+  ctx.beginPath(); ctx.arc(px, py, 2.5, 0, Math.PI * 2);
+  ctx.fillStyle = color; ctx.fill();
+}
+
+// ── Arrow helper ─────────────────────────────────────────────────
+function drawArrow(x1, y1, x2, y2, color) {
+  ctx.strokeStyle = color; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  const ang = Math.atan2(y2 - y1, x2 - x1);
+  ctx.fillStyle = color; ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - 9 * Math.cos(ang - 0.4), y2 - 9 * Math.sin(ang - 0.4));
+  ctx.lineTo(x2 - 9 * Math.cos(ang + 0.4), y2 - 9 * Math.sin(ang + 0.4));
+  ctx.closePath(); ctx.fill();
+}
+
+// ── HUD update ───────────────────────────────────────────────────
+function updateHUD(sec) {
+  const idx = getStageIndex(sec);
+  const s   = stages[idx];
+  document.getElementById('stageLabel').textContent = s.label;
+  document.getElementById('stageDesc').textContent  = s.desc;
+  const pct = (sec / TOTAL) * 100;
+  document.getElementById('timerFill').style.width  = pct + '%';
+  const m  = Math.floor(sec / 60);
+  const ss = Math.floor(sec % 60).toString().padStart(2, '0');
+  document.getElementById('timerText').textContent  = m + ':' + ss;
+
+  // Stage dots
+  for (let i = 0; i < 7; i++) {
+    const el = document.getElementById('dot' + i);
+    if (el) el.className = 'dot' + (i === idx ? ' active' : '');
+  }
+}
+
+// ── Animation loop ────────────────────────────────────────────────
+function frame(ts) {
+  if (!paused) {
+    if (lastTime === null) lastTime = ts;
+    const dt = (ts - lastTime) / 1000 * speed;
+    lastTime = ts;
+    t = t + dt;
+    if (t >= TOTAL) t = 0;
+  } else {
+    lastTime = null;
+  }
+  draw(t);
+  updateHUD(t);
+  raf = requestAnimationFrame(frame);
+}
+raf = requestAnimationFrame(frame);
+
+// ── Controls ─────────────────────────────────────────────────────
+document.getElementById('playBtn').addEventListener('click', function () {
+  paused = !paused;
+  this.textContent = paused ? '▶  Play' : '⏸  Pause';
+  this.classList.toggle('accent', !paused);
+});
+
+document.getElementById('restartBtn').addEventListener('click', function () {
+  t = 0; paused = false;
+  document.getElementById('playBtn').textContent = '⏸  Pause';
+  document.getElementById('playBtn').classList.add('accent');
+});
+
+document.getElementById('speed1Btn').addEventListener('click', function () {
+  speed = 1;
+  document.getElementById('speed1Btn').classList.add('accent');
+  document.getElementById('speed2Btn').classList.remove('accent');
+});
+
+document.getElementById('speed2Btn').addEventListener('click', function () {
+  speed = 2;
+  document.getElementById('speed2Btn').classList.add('accent');
+  document.getElementById('speed1Btn').classList.remove('accent');
+});
+
+// Click on canvas to pause/resume
+cv.addEventListener('click', function () {
+  paused = !paused;
+  const btn = document.getElementById('playBtn');
+  btn.textContent = paused ? '▶  Play' : '⏸  Pause';
+  btn.classList.toggle('accent', !paused);
+});
+</script>
+</body>
+</html>
